@@ -7,6 +7,8 @@ import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Scanner;
@@ -41,37 +43,28 @@ public class Main {
 	public static void main(String[] args) throws UnsupportedOperationException, IOException, InvalidRemoteException,
 			TransportException, GitAPIException {
 
-		String name = "/Users/imseongbin/Desktop/incubator-hudi";
+		String name = "/Users/imseongbin/Desktop/lottie-android";
 		String csvName = "/Users/imseongbin/Desktop/hudi.csv";
 
 		Git git = Git.open(new File(name));
 		Repository repo = git.getRepository();
-		RevWalk walk = new RevWalk(repo);
+		Iterable<RevCommit> walk = git.log().call();
 
-		for (Map.Entry<String, Ref> entry : repo.getAllRefs().entrySet()) {
-			
-			if (entry.getKey().contains("refs/heads/master")) { // only master
-				Ref ref = entry.getValue();
-				RevCommit commit = walk.parseCommit(ref.getObjectId());
-				walk.markStart(commit);
-			}
-		}
 		int cnt = 0;
 
-
-//		String header[] = {"commit-file","INS", "DEL", "MOV", "UPD" };
 		String header[] = null;
-		
 
+		HashSet<String> set = new HashSet<>();
+		
 		for (RevCommit commit : walk) {
-			
-			if(commit.getParentCount() < 1)
+
+			if (commit.getParentCount() < 1)
 				continue;
-			
+
 			cnt++;
 			RevCommit parent = null;
 			try {
-			parent = commit.getParent(0);
+				parent = commit.getParent(0);
 			} catch (Exception e) {
 				continue;
 			}
@@ -97,83 +90,63 @@ public class Main {
 
 					String prevFileSource = Utils.fetchBlob(repo, commit.getId().getName() + "~1", oldPath);
 					String fileSource = Utils.fetchBlob(repo, commit.getId().getName(), newPath);
-					
+
 					ArrayList<GChange> changes = MGumtree.diff(prevFileSource, fileSource);
-//					System.out.println(prevFileSource.equals(fileSource));
-					
+
 					lst.addAll(changes);
-					
-					if(lst.size() < 1)
+
+					if (lst.size() < 1)
 						continue;
 
-					ArrayList<Integer> lst1 = new ArrayList<>();
-					ArrayList<Integer> lst2 = new ArrayList<>();
-					ArrayList<Integer> lst3 = new ArrayList<>();
-					ArrayList<Integer> lst4 = new ArrayList<>();
+//					ArrayList<Integer> lst1 = new ArrayList<>();
+//					ArrayList<Integer> lst2 = new ArrayList<>();
+//					ArrayList<Integer> lst3 = new ArrayList<>();
+//					ArrayList<Integer> lst4 = new ArrayList<>();
 
 					String[] strlst = new String[lst.size()];
-//					strlst[0] = commit.getId().getName()+"-"+newPath;
-					int count = 0 ;
-					
+					int count = 0;
+
 					for (GChange change : lst) {
 						switch (change.change_type) {
 						case "INS":
-							lst1.add(change.node_type);
-							strlst[count] = "INS"+change.node_type;
+							strlst[count] = "INS" + change.node_type;
 							count++;
 							break;
 
 						case "DEL":
-							lst2.add(change.node_type);
-							strlst[count] = "DEL"+change.node_type;
+							strlst[count] = "DEL" + change.node_type;
 							count++;
 							break;
 
 						case "UPD":
-							lst3.add(change.node_type);
-							strlst[count] = "UPD"+change.node_type;
+							strlst[count] = "UPD" + change.node_type;
 							count++;
 							break;
 
 						case "MOV":
-							lst4.add(change.node_type);
-							strlst[count] = "MOV"+change.node_type;
+							strlst[count] = "MOV" + change.node_type;
 							count++;
 							break;
 						}
 					}
-					
-//					CSVmaker maker = new CSVmaker(new File("/Users/imseongbin/Desktop/"+commit.getId().getName()+newPath), null);
-					String fn = "/Users/imseongbin/Desktop/txts/"+commit.getId().getName()+newPath.replace("/", "-")+".txt"; //TODO: File.seperator
-					
-					File f = new File(fn.replace("/", "////"));
-					
-					FileWriter print = new FileWriter(f);
-					
-					
-//					String s1 = lst1.toString().substring(1, lst1.toString().length()-1);
-//					String s2 = lst2.toString().substring(1, lst2.toString().length()-1);
-//					String s3 = lst3.toString().substring(1, lst3.toString().length()-1);
-//					String s4 = lst4.toString().substring(1, lst4.toString().length()-1);
-					
-					
-					
-					for(String s : strlst) {
-						
-						print.write(s);
-						print.write(" ");
-					}
-					print.flush();
-					print.close();
-					
-//					print.printRecord(strlst);
 
+					HashMap<String, Integer> map = new HashMap<>();
+
+					for (String str : strlst) {
+						set.add(str);
+						map.putIfAbsent(str, 0);
+						map.computeIfPresent(str, (key, val) -> ++val);
+					}
+
+					
+//					System.out.println(map);
 				}
 
 			} catch (Exception e) {
 				e.printStackTrace();
 			}
 		}
+		System.out.println(set);
 		System.out.println("cnt: " + cnt);
 	}
 
